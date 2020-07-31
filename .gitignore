@@ -1,0 +1,14 @@
+*.mod
+*.o
+*.mod.o
+*.mod.c
+*.ko
+*.old
+*.order
+*.cmd
+*.symvers
+.dmp.ko.cmd
+.dmp.mod.cmd
+.dmp.mod.o.cmd
+.dmp.o.cmd
+/dist/*

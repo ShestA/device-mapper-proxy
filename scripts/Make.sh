@@ -20,7 +20,7 @@ if [ "$stat" != '' ]; then
    sudo apt-get install gcc
 fi
 
-cd ../src
+cd ..
 
 case $1 in
    "--clean")

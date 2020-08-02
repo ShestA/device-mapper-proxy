@@ -12,3 +12,4 @@
 .dmp.mod.o.cmd
 .dmp.o.cmd
 /dist/*
+*.sublime-workspace

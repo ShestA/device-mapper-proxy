@@ -108,12 +108,13 @@
 	],
 	"file_history":
 	[
+		"/home/aleksei/Projects/device_mapper_proxy/scripts/Make.sh",
+		"/home/aleksei/Projects/device_mapper_proxy/Makefile",
 		"/home/aleksei/Projects/device_mapper_proxy/.gitignore",
 		"/home/aleksei/Projects/device_mapper_proxy/scripts/FSTest.sh",
 		"/home/aleksei/Projects/device_mapper_proxy/scripts/LoopTest.sh",
 		"/home/aleksei/Projects/device_mapper_proxy/scripts/Test.sh",
 		"/home/aleksei/Projects/device_mapper_proxy/src/Makefile",
-		"/home/aleksei/Projects/device_mapper_proxy/scripts/Make.sh",
 		"/home/aleksei/Projects/device_mapper_proxy/src/dmp.c",
 		"/home/aleksei/Projects/device_mapper_proxy/scripts/MoreTests.sh",
 		"/home/aleksei/Projects/device_mapper_proxy/src/dmp.c.old",

@@ -11,7 +11,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Aleksei Shestakov <6akov98@gmail.com>");
 MODULE_DESCRIPTION(DM_NAME" r/w statistics module");
-MODULE_VERSION("1.0.0");
+MODULE_VERSION("1.0.1");
 
 //Структура статистики запросов
 static struct iostat {
@@ -20,9 +20,14 @@ static struct iostat {
     unsigned long rq_cnt;      //Общее кол-во запросов
     unsigned long rd_sz_blk;   //Размер записанных блоков
     unsigned long wr_sz_blk;   //Размер прочитанных блоков
+    unsigned long sz_blk;      //Размер блоков В/В
     unsigned long avg_rd_blk;  //Средний размер блока на запись
     unsigned long avg_wr_blk;  //Средний размер блока на чтение
     unsigned long avg_sz_blk;  //Средний размер блока
+#ifdef DEBUG
+    unsigned long segs_count_rd;  //Количество сегментов на чтение
+    unsigned long segs_count_wr;  //Количество сегментов на запись
+#endif
 } dmp_stat;
 
 /*
@@ -106,19 +111,46 @@ static void proxy_map_bio(struct dm_target *ti, struct bio *bio)
 
 static int proxy_map(struct dm_target *ti, struct bio *bio)
 {
+#ifdef DEBUG
+    unsigned segs = 0;
+#endif
+    struct bio_vec bv;
+    struct bvec_iter iter;
+    unsigned short size_of_bio_rq = 0;
+    
+
     switch (bio_op(bio)) {
         case REQ_OP_READ:
+            bio_for_each_segment(bv, bio, iter) {
+            #ifdef DEBUG
+                segs++;
+            #endif
+                size_of_bio_rq += bv.bv_len;
+            }
+        #ifdef DEBUG
+            dmp_stat.segs_count_rd += segs;
+        #endif
+            dmp_stat.rd_sz_blk += size_of_bio_rq;
             dmp_stat.rd_rq_cnt++;
-            dmp_stat.rd_sz_blk += bio->bi_io_vec->bv_len;
             break;
         case REQ_OP_WRITE:
+            bio_for_each_segment(bv, bio, iter) {
+            #ifdef DEBUG
+                segs++;
+            #endif
+                size_of_bio_rq += bv.bv_len;
+            }
+        #ifdef DEBUG
+            dmp_stat.segs_count_wr += segs;
+        #endif
+            dmp_stat.wr_sz_blk += size_of_bio_rq;
             dmp_stat.wr_rq_cnt++;
-            dmp_stat.wr_sz_blk += bio->bi_io_vec->bv_len;
             break;
         default:
             break;
     }
     dmp_stat.rq_cnt++;
+    dmp_stat.sz_blk += size_of_bio_rq;
     proxy_map_bio(ti, bio);
 
     return DM_MAPIO_REMAPPED;
@@ -126,7 +158,7 @@ static int proxy_map(struct dm_target *ti, struct bio *bio)
 
 static struct target_type proxy_target = {
     .name   = "proxy",
-    .version = {1, 0, 0},
+    .version = {1, 0, 1},
     .features = DM_TARGET_PASSES_INTEGRITY,
     .module = THIS_MODULE,
     .ctr    = proxy_ctr,
@@ -154,14 +186,14 @@ static char *text;
 static ssize_t show_stat(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     int prsz = 0;
-
     if (dmp_stat.rd_rq_cnt != 0)    dmp_stat.avg_rd_blk = dmp_stat.rd_sz_blk / dmp_stat.rd_rq_cnt;
     else                            dmp_stat.avg_rd_blk = 0;
 
     if (dmp_stat.wr_rq_cnt != 0)    dmp_stat.avg_wr_blk = dmp_stat.wr_sz_blk / dmp_stat.wr_rq_cnt;
     else                            dmp_stat.avg_wr_blk = 0;
 
-    dmp_stat.avg_sz_blk = (dmp_stat.avg_wr_blk + dmp_stat.avg_rd_blk) / 2;
+    dmp_stat.avg_sz_blk = dmp_stat.sz_blk / dmp_stat.rq_cnt;
+    
     prsz += unsafe_add_string(text, "read:\n", prsz);
     prsz += unsafe_add_string(text, "\treqs: ", prsz);
     sprintf(temp, "%lu\n", dmp_stat.rd_rq_cnt);
@@ -186,13 +218,38 @@ static ssize_t show_stat(struct kobject *kobj, struct kobj_attribute *attr, char
     sprintf(temp, "%lu\n", dmp_stat.avg_sz_blk);
     prsz += unsafe_add_string(text, temp, prsz);
 
+#ifdef DEBUG
+    prsz += unsafe_add_string(text, "debug:\n", prsz);
+    prsz += unsafe_add_string(text, "\tread segs: ", prsz);
+    sprintf(temp, "%lu\n", dmp_stat.segs_count_rd);
+    prsz += unsafe_add_string(text, temp, prsz);
+    prsz += unsafe_add_string(text, "\twrite segs: ", prsz);
+    sprintf(temp, "%lu\n", dmp_stat.segs_count_wr);
+    prsz += unsafe_add_string(text, temp, prsz);
+#endif
+
     return sprintf(buf, text);
 }
 /*
-Функция-заглушка получения данных от пользователя
+Функция получения данных от пользователя
 */
 static ssize_t store_stat(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
 {
+    if (*buf == 'c') {
+        dmp_stat.rd_rq_cnt  = 0;
+        dmp_stat.wr_rq_cnt  = 0;
+        dmp_stat.rq_cnt     = 0;
+        dmp_stat.rd_sz_blk  = 0;
+        dmp_stat.wr_sz_blk  = 0;
+        dmp_stat.sz_blk     = 0;
+        dmp_stat.avg_rd_blk = 0;
+        dmp_stat.avg_wr_blk = 0;
+        dmp_stat.avg_sz_blk = 0;
+    #ifdef DEBUG
+        dmp_stat.segs_count_wr = 0;
+        dmp_stat.segs_count_rd = 0;
+    #endif
+    }
     return count;
 }
 
@@ -208,7 +265,7 @@ int __init dm_proxy_init(void)
         DMERR("register failed %d", r);
 
     temp = kmalloc(10, GFP_KERNEL);
-    text = kmalloc(128,GFP_KERNEL);
+    text = kmalloc(256,GFP_KERNEL);
     subdir = kobject_create_and_add("stat", &(THIS_MODULE->mkobj.kobj));
     r = sysfs_create_file(subdir , &stat_attribute.attr);
     

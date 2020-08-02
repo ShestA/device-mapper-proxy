@@ -1,7 +1,6 @@
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd)/src modules
-	@sudo rm -r -f dist
-	@mkdir dist
+	@mkdir -p dist
 	@mv src/dmp.ko dist/dmp.ko
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd)/src modules
@@ -14,8 +13,7 @@ clean:
 	@rm .dmp.mod.cmd
 	@rm .dmp.mod.o.cmd
 	@rm .dmp.o.cmd
-	@sudo rm -r -f ../dist
-	@mkdir ../dist
+	@mkdir -p ../dist
 	@mv dmp.ko ../dist/dmp.ko
 cleanup:
 	rm *.o

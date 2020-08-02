@@ -47,7 +47,7 @@ $ lsmod | grep dmp
 # echo c >> /sys/module/dmp/stat/volumes
 ```
 >Перед сбросом статистики необходимо изменить права доступа к файлу /sys/module/dmp/stat/volumes командой
-```# chmod 666 /sys/module/dmp/stat/volumes ```
+```# chmod 666 /sys/module/dmp/stat/volumes ```  
 Пример вывода статистики:
 ```bash
 read:
